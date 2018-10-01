@@ -1,5 +1,5 @@
-const express = require('express');
-const router = express.Router();
+const Router = require('express-promise-router')
+const router = new Router();
 const userController = require('../controllers/user.controller');
 
 router.get('/', function(req, res, next) {
@@ -7,5 +7,11 @@ router.get('/', function(req, res, next) {
 });
 
 router.post('/login', userController.login);
+
+router.post('/register', userController.register);
+
+router.get('/private', userController.isAuthenticated, userController.private);
+
+router.get('/journalist', userController.isJournalist, userController.private);
 
 module.exports = router;
