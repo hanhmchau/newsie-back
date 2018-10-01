@@ -8,19 +8,17 @@ exports.create = async (req, res) => {
 	});
 };
 
-exports.getAllPublic = async (req, res) => {
-	const posts = await postService.getAllPublic();
-	res.json({
-		posts
-	});
+exports.getAllPublicPosts = async (req, res) => {
+    const { page, pageSize } = { ...req.body };
+    const offset = (page - 1) * pageSize;
+	const posts = await postService.getAllPublicPosts(pageSize, offset);
+	res.json(posts);
 };
 
 exports.getPostsByAuthor = async (req, res) => {
 	const { authorId, includesPrivate, includesPublic } = { ...req.body };
 	const posts = await postService.getPostsByAuthor(authorId, includesPrivate, includesPublic);
-	res.json({
-		posts
-	});
+	res.json(posts);
 };
 
 exports.addTag = async (req, res) => {
@@ -29,7 +27,7 @@ exports.addTag = async (req, res) => {
     res.sendStatus(204);
 };
 
-exports.removeTag = async (req, res) => {
+exports.deleteTag = async (req, res) => {
     const { postId, tagId } = { ...req.body };
     await postService.removeTag(postId, tagId);
     res.sendStatus(204);
@@ -42,24 +40,28 @@ exports.toggle = async (req, res) => {
 };
 
 exports.update = async (req, res) => {
+    const id = req.params.id;
     const post = await postService.update(req.body.post);
+    post.id = id;
     res.json({
         post
     });
 };
 
-exports.getById = async (req, res) => {
-    const post = await postService.getById(req.body.postId);
-	res.json({
-		post
-	});
+exports.getPostById = async (req, res) => {
+    const post = await postService.getById(req.params.id);
+    if (post) {
+        res.json({
+            post
+        });
+    } else {
+        res.sendStatus(404);
+    }
 };
 
 exports.delete = async (req, res) => {
-    const post = await postService.delete(req.body.postId);
-    res.json({
-        post
-    });
+    await postService.delete(req.params.id);
+    res.sendStatus(204);
 };
 
 exports.favorite = async (req, res) => {
@@ -78,18 +80,10 @@ exports.unfavorite = async (req, res) => {
     });
 };
 
-exports.getFavoritePosts = async (req, res) => {
-    const userId = req.body.userId;
-    const posts = postService.getFavoritePosts(userId);
-    res.json({
-        posts
-    });
-};
-
 exports.uploadPreviewImage = async (req, res) => {
     const fileName = req.file;
     const postId = req.body.postId;
-    // await postService.uploadPreviewImage(postId, fileName);
+    await postService.uploadPreviewImage(postId, fileName);
     return res.json({
         fileName: getFullUrl(req, fileName)
     });

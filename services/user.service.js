@@ -33,3 +33,20 @@ exports.getRole = async id => {
     );
     return rows[0];
 };
+
+
+exports.getFavoritePosts = async userId => {
+	const { rows } = await db.query(
+		'SELECT * FROM Post WHERE Id IN (SELECT PostId FROM Favorite WHERE UserId = $1)',
+		[userId]
+	);
+	return rows;
+};
+
+exports.isOwner = async (userId, postId) => {
+	const { rows } = await db.query('SELECT authorId FROM Post WHERE id = $1', [
+		postId
+	]);
+	const authorId = rows[0];
+	return authorId === userId;
+};
