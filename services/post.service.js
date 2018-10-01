@@ -12,10 +12,28 @@ exports.getAllPublic = async () => {
     const { rows } = await db.query(
         'SELECT * FROM Post WHERE public = TRUE'
     );
-    return rows[0];
+    return rows;
 };
 
-exports.getByAuthor = async ({authorId, includesPrivate = false, includesPublic = true}) => {
+exports.getPublicPostsByAuthor = async authorId => {
+    let query = 'SELECT * FROM Post WHERE AuthorId = $1 WHERE Public = TRUE';
+    const { rows } = await db.query(query, [authorId]);
+    return rows;
+};
+
+exports.getAllPostsByAuthor = async authorId => {
+    let query = 'SELECT * FROM Post WHERE AuthorId = $1';
+	const { rows } = await db.query(query, [authorId]);
+	return rows;
+};
+
+exports.getPrivatePostsByAuthor = async authorId => {
+    let query = 'SELECT * FROM Post WHERE AuthorId = $1 WHERE Public = FALSE';
+	const { rows } = await db.query(query, [authorId]);
+	return rows;
+};
+
+exports.getPostsByAuthor = async (authorId, includesPrivate = false, includesPublic = true) => {
     let query = 'SELECT * FROM Post WHERE AuthorId = $1 ';
     if (!includesPrivate) {
         query += ' AND Public = TRUE '
@@ -24,7 +42,7 @@ exports.getByAuthor = async ({authorId, includesPrivate = false, includesPublic 
         query += ' AND Public = FALSE ';
     }
     const { rows } = await db.query(query, [authorId]);
-	return rows[0];
+	return rows;
 };
 
 exports.addTag = async (postId, tagId) => {
@@ -40,10 +58,10 @@ exports.removeTag = async (postId, tagId) => {
     return rows[0];
 };
 
-exports.toggle = async (id, isPublic) => {
+exports.toggle = async (postId, isPublic) => {
     const { rows } = await db.query(
 		'UPDATE Post SET Public = $1 WHERE id = $2',
-		[isPublic, id]
+        [isPublic, postId]
 	);
 	return rows[0];
 };
@@ -80,6 +98,11 @@ exports.favorite = async (postId, userId) => {
 exports.unfavorite = async (postId, userId) => {
     const { rows } = await db.query('DELETE FROM Favorite WHERE PostId = $1 AND UserId = $2', [postId, userId]);
     return rows[0];
+};
+
+exports.getFavoritePosts = async (userId) => {
+    const { rows } = await db.query('SELECT * FROM Post WHERE Id IN (SELECT PostId FROM Favorite WHERE UserId = $1)', [userId]);
+    return rows;
 };
 
 exports.uploadPreviewImage = async (postId, fileName) => {

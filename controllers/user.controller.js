@@ -1,5 +1,6 @@
 const userService = require('../services/user.service');
 const jwt = require('jsonwebtoken');
+
 const { roles } = require('../consts');
 const sign = id =>
 	jwt.sign(
