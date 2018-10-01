@@ -2,14 +2,16 @@ const postService = require('../services/post.service');
 const { getFullUrl } = require('../utils');
 
 exports.create = async (req, res) => {
-	const post = await postService.create(req.body.post);
+    const post = req.body.post;
+    post.authorId = req.user;
+	const newPost = await postService.create(req.body.post);
 	res.json({
-		id: post.id
+        id: newPost.id
 	});
 };
 
 exports.getAllPublicPosts = async (req, res) => {
-    const { page, pageSize } = { ...req.body };
+    const { page = 1, pageSize = 10 } = { ...req.body };
     const offset = (page - 1) * pageSize;
 	const posts = await postService.getAllPublicPosts(pageSize, offset);
 	res.json(posts);
@@ -41,11 +43,10 @@ exports.toggle = async (req, res) => {
 
 exports.update = async (req, res) => {
     const id = req.params.id;
-    const post = await postService.update(req.body.post);
+    const post = req.body.post;
     post.id = id;
-    res.json({
-        post
-    });
+    await postService.update(req.body.post);
+    res.sendStatus(204);
 };
 
 exports.getPostById = async (req, res) => {
@@ -87,4 +88,28 @@ exports.uploadPreviewImage = async (req, res) => {
     return res.json({
         fileName: getFullUrl(req, fileName)
     });
+};
+
+exports.createComment = async (req, res) => {
+    const { postId, content } = { ...req.body };
+    const commenterId = req.user;
+    const comment = await postService.createComment(postId, content, commenterId);
+    return res.json({
+        id: comment.id
+    });
+};
+
+exports.updateComment = async (req, res) => {
+	const { commentId, content } = { ...req.body };
+	await postService.createComment(
+        commentId,
+		content
+	);
+	return res.sendStatus(204);
+};
+
+exports.deleteComment = async (req, res) => {
+    const { commentId } = { ...req.body };
+    await postService.deleteComment(commentId);
+    return res.sendStatus(204);
 };

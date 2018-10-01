@@ -35,6 +35,12 @@ router.put('/:id/toggle/', userController.isPostOwner, postController.toggle);
 
 router.post('/:id/tag/:tagId', userController.isPostOwner, postController.addTag);
 
-router.post('/:id/tag/:tagId', userController.isPostOwner, postController.deleteTag);
+router.delete('/:id/tag/:tagId', userController.isPostOwner, postController.deleteTag);
+
+router.post('/:id/comment/', userController.isAuthenticated, postController.createComment);
+
+router.put('/:id/comment/:commentId', userController.isCommentOwner, postController.updateComment);
+
+router.delete('/:id/comment/:commentId', userController.isCommentOwner, postController.deleteComment);
 
 module.exports = router;

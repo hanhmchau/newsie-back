@@ -1,4 +1,5 @@
 const userService = require('../services/user.service');
+const postService = require('../services/post.service');
 const jwt = require('jsonwebtoken');
 
 const { roles } = require('../consts');
@@ -54,7 +55,7 @@ exports.isAuthenticated = async (req, res, next) => {
     const token = req.get('Authorization');
     try {
         const decoded = jwt.verify(token, process.env.SECRET);
-        req.user = decoded;
+        req.user = decoded.id;
         next();
     } catch (e) {
         res.status(403).json({ message: 'Forbidden' });
@@ -65,9 +66,9 @@ exports.isJournalist = async (req, res, next) => {
     const token = req.get('Authorization');
 	try {
 		const decoded = jwt.verify(token, process.env.SECRET);
-        req.user = decoded;
         const { role } = await userService.getRole(decoded.id);
         if (role === roles.JOURNALIST) {
+            req.user = decoded.id;
             next();
         } else {
             res.status(403).json({ message: 'Forbidden' });
@@ -82,8 +83,8 @@ exports.isProfileOwner = async (req, res, next) => {
     try {
         const decoded = jwt.verify(token, process.env.SECRET);
         const userId = req.params.userId || req.params.id;
-
-        if (decoded.id === userId) {
+        if (decoded.id.toString() === userId) {
+            req.user = decoded.id;
             next();
         } else {
             res.status(403).json({ message: 'Forbidden' });
@@ -100,6 +101,7 @@ exports.isPostOwner = async (req, res, next) => {
         const userId = decoded.id;
         const postId = req.params.postId || req.params.id;
         if (await userService.isOwner(userId, postId)) {
+            req.user = decoded.id;
             next();
         } else {
             res.status(403).json({ message: 'Forbidden' });
@@ -107,6 +109,23 @@ exports.isPostOwner = async (req, res, next) => {
     } catch (e) {
         res.status(403).json({ message: 'Forbidden' });
     }
+};
+
+exports.isCommentOwner = async (req, res, next) => {
+	const token = req.get('Authorization');
+	try {
+		const decoded = jwt.verify(token, process.env.SECRET);
+		const userId = decoded.id;
+		const commentId = req.params.commentId;
+        if (await userService.isCommentOwner(userId, commentId)) {
+			req.user = decoded.id;
+			next();
+		} else {
+			res.status(403).json({ message: 'Forbidden' });
+		}
+	} catch (e) {
+		res.status(403).json({ message: 'Forbidden' });
+	}
 };
 
 exports.getFavoritePosts = async (req, res) => {

@@ -2,15 +2,15 @@ const db = require('../db');
 
 exports.create = async ({name, content, categoryId, authorId, previewImage}) => {
     const { rows } = await db.query(
-        'INSERT INTO Post(Name, Content, CategoryId, AuthorId, PreviewImage) VALUES($1, $2, $3, $4, $5) RETURNING Id',
-        [name, content, categoryId, authorId, previewImage]
+        'INSERT INTO Post(Name, Content, CategoryId, AuthorId, PreviewImage, DatePublished) VALUES($1, $2, $3, $4, $5, $6) RETURNING Id',
+        [name, content, categoryId, authorId, previewImage, new Date()]
     );
     return rows[0];
 };
 
 exports.getAllPublicPosts = async (limit = 10, offset = 0) => {
     const { rows } = await db.query(
-        'SELECT * FROM Post WHERE public = TRUE LIMIT $2 OFFSET $2',
+        'SELECT * FROM Post WHERE public = TRUE LIMIT $1 OFFSET $2',
         [limit, offset]
     );
     rows.forEach(row => row.tags = exports.getTags(row.id));
@@ -18,28 +18,36 @@ exports.getAllPublicPosts = async (limit = 10, offset = 0) => {
 };
 
 exports.getPublicPostsByAuthor = async authorId => {
-    let query = 'SELECT * FROM Post WHERE AuthorId = $1 WHERE Public = TRUE';
+    let query = `SELECT *, (SELECT COUNT(DISTINCT commenterId) FROM Comment WHERE postId = p.id) AS commentCount,
+        (SELECT COUNT(DISTINCT userId) FROM Favorite WHERE postId = p.id) AS favoriteCount 
+     FROM Post p WHERE AuthorId = $1 AND Public = TRUE`;
     const { rows } = await db.query(query, [authorId]);
     rows.forEach(row => row.tags = exports.getTags(row.id));
     return rows;
 };
 
 exports.getAllPostsByAuthor = async authorId => {
-    let query = 'SELECT * FROM Post WHERE AuthorId = $1';
+    let query = `SELECT *, (SELECT COUNT(DISTINCT commenterId) FROM Comment WHERE postId = p.id) AS commentCount,
+        (SELECT COUNT(DISTINCT userId) FROM Favorite WHERE postId = p.id) AS favoriteCount 
+     FROM Post p WHERE AuthorId = $1 `;
     const { rows } = await db.query(query, [authorId]);
     rows.forEach(row => row.tags = exports.getTags(row.id));
 	return rows;
 };
 
 exports.getPrivatePostsByAuthor = async authorId => {
-    let query = 'SELECT * FROM Post WHERE AuthorId = $1 WHERE Public = FALSE';
+    let query = `SELECT *, (SELECT COUNT(DISTINCT commenterId) FROM Comment WHERE postId = p.id) AS commentCount,
+        (SELECT COUNT(DISTINCT userId) FROM Favorite WHERE postId = p.id) AS favoriteCount 
+     FROM Post p WHERE AuthorId = $1 AND Public = FALSE`;
     const { rows } = await db.query(query, [authorId]);
     rows.forEach(row => row.tags = exports.getTags(row.id));
 	return rows;
 };
 
 exports.getPostsByAuthor = async (authorId, includesPrivate = false, includesPublic = true) => {
-    let query = 'SELECT * FROM Post WHERE AuthorId = $1 ';
+    let query = `SELECT *, (SELECT COUNT(DISTINCT commenterId) FROM Comment WHERE postId = p.id) AS commentCount,
+        (SELECT COUNT(DISTINCT userId) FROM Favorite WHERE postId = p.id) AS favoriteCount 
+     FROM Post p WHERE AuthorId = $1 `;
     if (!includesPrivate) {
         query += ' AND Public = TRUE '
     }
@@ -47,7 +55,9 @@ exports.getPostsByAuthor = async (authorId, includesPrivate = false, includesPub
         query += ' AND Public = FALSE ';
     }
     const { rows } = await db.query(query, [authorId]);
-    rows.forEach(row => row.tags = exports.getTags(row.id));
+    rows.forEach(row => {
+        row.tags = exports.getTags(row.id);
+    });
 	return rows;
 };
 
@@ -87,12 +97,15 @@ exports.update = async ({ id, name, content, categoryId }) => {
 
 exports.getById = async id => {
 	const { rows } = await db.query(
-		'SELECT p.*, u.id, u.email FROM Post p JOIN AppUser u ON p.authorId = u.id WHERE Id = $1',
+        `SELECT p.*, u.id, u.email, 
+            (SELECT COUNT(DISTINCT userId) FROM Favorite WHERE postId = p.id) AS favoriteCount 
+            FROM Post p JOIN AppUser u ON p.authorId = u.id WHERE p.id = $1`,
 		[id]
-    );
+	);
     const post = rows[0];
     if (post) {
         post.tags = exports.getTags(id);
+        post.comments = exports.getComments(id);
     }
     return post;
 };
@@ -120,5 +133,50 @@ exports.uploadPreviewImage = async (postId, fileName) => {
 		'UPDATE Post SET PreviewImage = $1 WHERE id = $2',
 		[fileName, postId]
 	);
+	return rows[0];
+};
+
+exports.getFavoriteCount = async (postId) => {
+    const { rows } = await db.query(
+		'SELECT COUNT(DISTINCT userId) FROM Favorite WHERE postId = $1',
+		[postId]
+	);
+    return rows[0];
+};
+
+exports.getCommentCount = async (postId) => {
+    const { rows } = await db.query(
+        'SELECT COUNT(DISTINCT userId) FROM Comment WHERE postId = $1',
+        [postId]
+    );
+    return rows[0];
+};
+
+exports.getComments = async (postId) => {
+    const { rows } = await db.query(
+		'SELECT * FROM Comment WHERE postId = $1',
+		[postId]
+	);
+	return rows[0];
+};
+
+exports.createComment = async (postId, content, commenterId) => {
+    const { rows } = await db.query('INSERT INTO Comment(Content, PostId, CommenterId, DateCommented) VALUES($1, $2, $3, $4)', [
+		content, postId, commenterId, new Date()
+	]);
+	return rows[0];
+};
+
+exports.deleteComment = async (commentId) => {
+    const { rows } = await db.query('DELETE FROM Comment WHERE Id = $1', [
+        commentId
+    ]);
+    return rows[0];
+};
+
+exports.updateComment = async (commentId, content) => {
+	const { rows } = await db.query('UPDATE Comment SET Content = $1 WHERE Id = $2', [
+		content, commentId
+	]);
 	return rows[0];
 };
