@@ -14,6 +14,8 @@ router.get('/private', userController.isAuthenticated, userController.private);
 
 router.get('/journalist', userController.isJournalist, userController.private);
 
+router.get('/:id', userController.getUserById);
+
 router.get('/:id/public-posts', userController.getPublicPostsByAuthor);
 
 router.get('/:id/private-posts', userController.isProfileOwner,

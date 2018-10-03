@@ -8,21 +8,36 @@ exports.create = async ({name, content, categoryId, authorId, previewImage}) => 
     return rows[0];
 };
 
-exports.getAllPublicPosts = async (limit = 10, offset = 0) => {
+exports.getAllPublicPosts = async () => {
+	const { rows } = await db.query(`SELECT *, (SELECT COUNT(DISTINCT commenterId) FROM Comment WHERE postId = p.id) AS commentCount,
+            (SELECT COUNT(DISTINCT userId) FROM Favorite WHERE postId = p.id) AS favoriteCount,
+            (SELECT Name FROM Category WHERE id = p.categoryId) AS categoryName,
+            (SELECT Email FROM AppUser WHERE id = p.authorId) AS authorName
+            FROM Post p WHERE public = TRUE`);
+    await Promise.all(rows.map(async row => (row.tags = await exports.getTags(row.id))));
+	return rows;
+};
+
+exports.getSomePublicPosts = async (limit = 10, offset = 0) => {
     const { rows } = await db.query(
-        'SELECT * FROM Post WHERE public = TRUE LIMIT $1 OFFSET $2',
+        `SELECT *, (SELECT COUNT(DISTINCT commenterId) FROM Comment WHERE postId = p.id) AS commentCount,
+            (SELECT COUNT(DISTINCT userId) FROM Favorite WHERE postId = p.id) AS favoriteCount,
+            (SELECT Name FROM Category WHERE id = p.categoryId) AS categoryName,
+            (SELECT Email FROM AppUser WHERE id = p.authorId) AS authorName
+            FROM Post p WHERE public = TRUE LIMIT $1 OFFSET $2`,
         [limit, offset]
     );
-    rows.forEach(row => row.tags = exports.getTags(row.id));
+    await Promise.all(rows.map(async row => (row.tags = await exports.getTags(row.id))));
     return rows;
 };
 
 exports.getPublicPostsByAuthor = async authorId => {
     let query = `SELECT *, (SELECT COUNT(DISTINCT commenterId) FROM Comment WHERE postId = p.id) AS commentCount,
-        (SELECT COUNT(DISTINCT userId) FROM Favorite WHERE postId = p.id) AS favoriteCount 
+        (SELECT COUNT(DISTINCT userId) FROM Favorite WHERE postId = p.id) AS favoriteCount,
+        (SELECT Name FROM Category WHERE id = p.categoryId) AS categoryName
      FROM Post p WHERE AuthorId = $1 AND Public = TRUE`;
     const { rows } = await db.query(query, [authorId]);
-    rows.forEach(row => row.tags = exports.getTags(row.id));
+    await Promise.all(rows.map(async row => (row.tags = await exports.getTags(row.id))));
     return rows;
 };
 
@@ -31,7 +46,7 @@ exports.getAllPostsByAuthor = async authorId => {
         (SELECT COUNT(DISTINCT userId) FROM Favorite WHERE postId = p.id) AS favoriteCount 
      FROM Post p WHERE AuthorId = $1 `;
     const { rows } = await db.query(query, [authorId]);
-    rows.forEach(row => row.tags = exports.getTags(row.id));
+    await Promise.all(rows.map(async row => (row.tags = await exports.getTags(row.id))));
 	return rows;
 };
 
@@ -40,7 +55,7 @@ exports.getPrivatePostsByAuthor = async authorId => {
         (SELECT COUNT(DISTINCT userId) FROM Favorite WHERE postId = p.id) AS favoriteCount 
      FROM Post p WHERE AuthorId = $1 AND Public = FALSE`;
     const { rows } = await db.query(query, [authorId]);
-    rows.forEach(row => row.tags = exports.getTags(row.id));
+    await Promise.all(rows.map(async row => (row.tags = await exports.getTags(row.id))));
 	return rows;
 };
 
@@ -55,9 +70,7 @@ exports.getPostsByAuthor = async (authorId, includesPrivate = false, includesPub
         query += ' AND Public = FALSE ';
     }
     const { rows } = await db.query(query, [authorId]);
-    rows.forEach(row => {
-        row.tags = exports.getTags(row.id);
-    });
+    await Promise.all(rows.map(async row => (row.tags = await exports.getTags(row.id))));
 	return rows;
 };
 
@@ -97,15 +110,16 @@ exports.update = async ({ id, name, content, categoryId }) => {
 
 exports.getById = async id => {
 	const { rows } = await db.query(
-        `SELECT p.*, u.id, u.email, 
-            (SELECT COUNT(DISTINCT userId) FROM Favorite WHERE postId = p.id) AS favoriteCount 
+		`SELECT p.*, u.id, u.email AS authorName, 
+            (SELECT COUNT(DISTINCT userId) FROM Favorite WHERE postId = p.id) AS favoriteCount,
+                        (SELECT Name FROM Category WHERE id = p.categoryId) AS categoryName
             FROM Post p JOIN AppUser u ON p.authorId = u.id WHERE p.id = $1`,
 		[id]
 	);
     const post = rows[0];
     if (post) {
-        post.tags = exports.getTags(id);
-        post.comments = exports.getComments(id);
+        post.tags = await exports.getTags(id);
+        post.comments = await exports.getComments(id);
     }
     return post;
 };
@@ -157,7 +171,7 @@ exports.getComments = async (postId) => {
 		'SELECT * FROM Comment WHERE postId = $1',
 		[postId]
 	);
-	return rows[0];
+	return rows;
 };
 
 exports.createComment = async (postId, content, commenterId) => {

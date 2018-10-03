@@ -1,5 +1,5 @@
 const postService = require('../services/post.service');
-const { getFullUrl } = require('../utils');
+const { getFullUrl, getExtension } = require('../utils');
 
 exports.create = async (req, res) => {
     const post = req.body.post;
@@ -51,10 +51,10 @@ exports.update = async (req, res) => {
 
 exports.getPostById = async (req, res) => {
     const post = await postService.getById(req.params.id);
-    if (post) {
-        res.json({
-            post
-        });
+    if (post && post.public) {
+        if (post.public) {
+            res.json(post);
+        }
     } else {
         res.sendStatus(404);
     }
@@ -81,8 +81,11 @@ exports.unfavorite = async (req, res) => {
     });
 };
 
+exports.uploadImage = async (req, res) => {
+    return res.json({ fileName: getFullUrl(req, req.fullFileName) });
+};
+
 exports.uploadPreviewImage = async (req, res) => {
-    const fileName = req.file;
     const postId = req.body.postId;
     await postService.uploadPreviewImage(postId, fileName);
     return res.json({

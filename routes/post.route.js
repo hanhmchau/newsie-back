@@ -2,15 +2,21 @@ const Router = require('express-promise-router');
 const router = new Router();
 const postController = require('../controllers/post.controller');
 const userController = require('../controllers/user.controller');
+const { getFullUrl, getExtension } = require('../utils');
 const multer = require('multer');
-const utils = require('../utils');
 const uuidv1 = require('uuid/v1');
-const upload = multer({
-    dest: 'public/images/',
-    fileName: (req, file, cb) => {
-        const fileName = `${uuidv1()}.${utils.getExtension(file.name)}`;
+
+const storage = multer.diskStorage({
+    destination: 'public/images/',
+	filename: function(req, file, cb) {
+        const fileExtension = getExtension(file.originalname);
+        const fileName = `${uuidv1()}.${fileExtension}`;
+        req.fullFileName = fileName;
         cb(null, fileName);
-    }
+	}
+});
+const upload = multer({
+    storage
 });
 
 router.get('/', postController.getAllPublicPosts);
@@ -23,7 +29,9 @@ router.put('/:id', userController.isPostOwner, postController.update);
 
 router.delete('/:id', userController.isPostOwner, postController.delete);
 
-router.put('/:id/preview-image/', upload.single('preview-image'), userController.isPostOwner, postController.uploadPreviewImage);
+router.post('/preview-image/', upload.single('preview-image'), postController.uploadImage);
+
+router.put('/:id/preview-image/', userController.isPostOwner, upload.single('preview-image'), postController.uploadPreviewImage);
 
 router.get('/:id/favorite/:postId', userController.isAuthenticated, userController.getFavoritePosts);
 
