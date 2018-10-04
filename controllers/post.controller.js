@@ -2,9 +2,9 @@ const postService = require('../services/post.service');
 const { getFullUrl, getExtension } = require('../utils');
 
 exports.create = async (req, res) => {
-    const post = req.body.post;
+    const post = req.body;
     post.authorId = req.user;
-	const newPost = await postService.create(req.body.post);
+	const newPost = await postService.create(post);
 	res.json({
         id: newPost.id
 	});
@@ -43,21 +43,28 @@ exports.toggle = async (req, res) => {
 
 exports.update = async (req, res) => {
     const id = req.params.id;
-    const post = req.body.post;
+    const post = req.body;
     post.id = id;
-    await postService.update(req.body.post);
+    await postService.update(post);
     res.sendStatus(204);
 };
 
 exports.getPostById = async (req, res) => {
     const post = await postService.getById(req.params.id);
     if (post && post.public) {
-        if (post.public) {
-            res.json(post);
-        }
+        res.json(post);
     } else {
         res.sendStatus(404);
     }
+};
+
+exports.getPrivateOrPublicPostById = async (req, res) => {
+    const post = await postService.getById(req.params.id);
+	if (post) {
+        res.json(post);
+	} else {
+		res.sendStatus(404);
+	}
 };
 
 exports.delete = async (req, res) => {
@@ -87,10 +94,8 @@ exports.uploadImage = async (req, res) => {
 
 exports.uploadPreviewImage = async (req, res) => {
     const postId = req.body.postId;
-    await postService.uploadPreviewImage(postId, fileName);
-    return res.json({
-        fileName: getFullUrl(req, fileName)
-    });
+    await postService.uploadPreviewImage(postId, req.fullFileName);
+    return res.json({ fileName: getFullUrl(req, req.fullFileName) });
 };
 
 exports.createComment = async (req, res) => {

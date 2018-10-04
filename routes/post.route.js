@@ -23,6 +23,8 @@ router.get('/', postController.getAllPublicPosts);
 
 router.get('/:id', postController.getPostById);
 
+router.get('/:id/private', userController.isPostOwner, postController.getPrivateOrPublicPostById);
+
 router.post('/', userController.isJournalist, postController.create);
 
 router.put('/:id', userController.isPostOwner, postController.update);

@@ -1,10 +1,19 @@
 const db = require('../db');
 
-exports.create = async ({name, content, categoryId, authorId, previewImage}) => {
+exports.create = async body => {
+    const { name, content, categoryid, authorid, previewImage } = body;
     const { rows } = await db.query(
-        'INSERT INTO Post(Name, Content, CategoryId, AuthorId, PreviewImage, DatePublished) VALUES($1, $2, $3, $4, $5, $6) RETURNING Id',
-        [name, content, categoryId, authorId, previewImage, new Date()]
-    );
+		'INSERT INTO Post(Name, Content, CategoryId, AuthorId, PreviewImage, DatePublished, Public) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING Id',
+		[
+			name,
+			content,
+            categoryid,
+			authorid,
+			previewImage,
+			new Date(),
+			body.public
+		]
+	);
     return rows[0];
 };
 
@@ -100,17 +109,18 @@ exports.toggle = async (postId, isPublic) => {
 	return rows[0];
 };
 
-exports.update = async ({ id, name, content, categoryId }) => {
+exports.update = async (body) => {
+    const { id, name, content, categoryid } = { ... body};
     const { rows } = await db.query(
-        'UPDATE Post SET Name = $1, Content = $2, CategoryId = $3 WHERE id = $4',
-        [name, content, categoryId, id]
-    );
+		'UPDATE Post SET Name = $1, Content = $2, CategoryId = $3, Public = $4 WHERE id = $5',
+		[name, content, categoryid, body.public, id]
+	);
     return rows[0];
 };
 
 exports.getById = async id => {
 	const { rows } = await db.query(
-		`SELECT p.*, u.id, u.email AS authorName, 
+		`SELECT p.*, u.id AS authorid, u.email AS authorName, 
             (SELECT COUNT(DISTINCT userId) FROM Favorite WHERE postId = p.id) AS favoriteCount,
                         (SELECT Name FROM Category WHERE id = p.categoryId) AS categoryName
             FROM Post p JOIN AppUser u ON p.authorId = u.id WHERE p.id = $1`,
